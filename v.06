@@ -1,0 +1,40 @@
+import socket
+import sys
+
+def send_command(sock, command):
+    try:
+        sock.sendall((command + '\n').encode())
+        response = sock.recv(1024).decode()
+        print("Response:", response)
+    except Exception as e:
+        print(f"Error sending command: {e}")
+
+def main():
+    host = '192.168.200.101'  # Replace with your FlexRadio IP
+    port = 4992               # Standard API port for FlexRadio
+
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print("Connecting to FlexRadio...")
+        sock.connect((host, port))
+        print("Connected.")
+
+        while True:
+            user_input = input("Enter command (or 'exit' to quit): ")
+
+            if user_input.lower() == 'exit':
+                break
+
+            send_command(sock, user_input)
+
+    except Exception as e:
+        print(f"Connection error: {e}")
+
+    finally:
+        if should_close_socket:
+            sock.close()
+            print("Socket closed.")
+
+if __name__ == "__main__":
+    main()
+
