@@ -1,15 +1,62 @@
 import socket
 import sys
+from tkinter import messagebox, ttk  # Add ttk to the imports
+import tkinter as tk
 
 def send_command(sock, command):
     try:
         sock.sendall((command + '\n').encode())
         response = sock.recv(1024).decode()
         print("Response:", response)
+        return response
     except Exception as e:
         print(f"Error sending command: {e}")
+        messagebox.showerror("Error", f"Failed to send command: {e}")
+
+def create_slice(sock):
+    try:
+        # Get user input
+        frequency = frequency_entry.get()
+        mode = mode_var.get()
+        antenna = antenna_var.get()
+
+        if not frequency or not mode or not antenna:
+            raise ValueError("Please fill in all fields.")
+
+        # Construct the command to create a slice
+        command = f"C[C]<1337>|slice create freq={frequency} mode={mode} ant={antenna}"
+
+        response = send_command(sock, command)
+
+        if "Success" in response:  # Replace with actual success check logic
+            messagebox.showinfo("Info", "Slice created successfully.")
+    except ValueError as ve:
+        print(ve)
+        messagebox.showerror("Error", str(ve))
+
+def close_slice(sock):
+    try:
+        slice_rx_number = int(slice_rx_entry.get())
+
+        if not (0 <= slice_rx_number):  # Adjust to allow 0-based indexing
+            raise ValueError("Invalid Slice RX Number.")
+
+        # Construct the command to delete a slice
+        command = f"C[C]<37>|slice r {slice_rx_number}"
+
+        response = send_command(sock, command)
+
+        if "00000000" in response:  # Check for success code
+            messagebox.showinfo("Info", "Slice closed successfully.")
+        else:
+            messagebox.showerror("Error", "Failed to close the slice. Please check the RX number and try again.")
+    except ValueError as ve:
+        print(ve)
+        messagebox.showerror("Error", str(ve))
 
 def main():
+    global sock, frequency_entry, mode_var, antenna_var, slice_rx_entry
+
     host = '192.168.200.101'  # Replace with your FlexRadio IP
     port = 4992               # Standard API port for FlexRadio
 
@@ -18,23 +65,52 @@ def main():
         print("Connecting to FlexRadio...")
         sock.connect((host, port))
         print("Connected.")
-
-        while True:
-            user_input = input("Enter command (or 'exit' to quit): ")
-
-            if user_input.lower() == 'exit':
-                break
-
-            send_command(sock, user_input)
-
     except Exception as e:
-        print(f"Connection error: {e}")
+        messagebox.showerror("Connection Error", f"Could not connect to the radio: {e}")
+        sys.exit(1)
 
-    finally:
-        if should_close_socket:
-            sock.close()
-            print("Socket closed.")
+    root = tk.Tk()
+    root.title("Slice Manager")
+
+    # Frequency input
+    tk.Label(root, text="Frequency:").grid(row=0, column=0)
+    frequency_entry = tk.Entry(root)
+    frequency_entry.grid(row=0, column=1)
+
+ # Mode selection
+    mode_var = tk.StringVar(value='usb')  # Default value
+    modes = ['usb', 'lsb', 'cw', 'am']
+    ttk.Label(root, text="Mode:").grid(row=1, column=0, padx=10, pady=5)
+    mode_menu = ttk.Combobox(root, textvariable=mode_var, values=modes, state='readonly')
+    mode_menu.grid(row=1, column=1)
+    
+    # Use ttk.Combobox for the mode selection
+    mode_options = ['usb', 'lsb', 'cw', 'am']  # Replace with actual modes
+    mode_menu = ttk.Combobox(root, textvariable=mode_var, values=mode_options)
+    mode_menu.grid(row=1, column=1)
+
+    # Antenna selection
+    antenna_var = tk.StringVar(value='ANT1')  # Default value
+    antennas = ['ANT1', 'ANT2', 'RXA', 'RXB', 'XVTR']
+    ttk.Label(root, text="Antenna:").grid(row=2, column=0, padx=10, pady=5)
+    antenna_menu = ttk.Combobox(root, textvariable=antenna_var, values=antennas, state='readonly')
+    antenna_menu.grid(row=2, column=1)
+
+    # Button to create slice
+    tk.Button(root, text="Create Slice", command=lambda: create_slice(sock)).grid(row=3, column=0, columnspan=2)
+
+    # Input for closing a slice
+    tk.Label(root, text="Slice RX Number:").grid(row=4, column=0)
+    slice_rx_entry = tk.Entry(root)
+    slice_rx_entry.grid(row=4, column=1)
+
+    # Button to close slice
+    tk.Button(root, text="Close Slice", command=lambda: close_slice(sock)).grid(row=5, column=0, columnspan=2)
+
+    root.mainloop()
 
 if __name__ == "__main__":
     main()
+
+
 
